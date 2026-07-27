@@ -1,0 +1,7 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# Validate: `nonexistent_xyz`
+
+**Result**: `NOT_FOUND`

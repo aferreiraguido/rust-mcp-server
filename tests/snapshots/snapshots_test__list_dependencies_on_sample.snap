@@ -1,0 +1,11 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# Dependencies of `sample_crate` (3)
+
+| Name | Scope | Version | Features | Source |
+|------|------|------|------|------|
+| `cfg-if` | normal | `1` | - | - |
+| `once_cell` | normal | `1` | - | - |
+| `pretty_assertions` | dev | `1` | - | - |

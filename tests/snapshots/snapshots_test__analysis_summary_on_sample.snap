@@ -1,0 +1,28 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# ASG Summary: `sample_crate`
+
+## Engine
+
+- **Backend**: rust-analyzer (ra_ap_* 0.0.343)
+- **Status**: loaded ✅
+
+## Crate
+
+- **lib.rs**: found
+- **main.rs**: not found
+
+## Files
+
+- **Count**: 1
+- **Total bytes**: 1442
+
+| File | Size |
+|------|------|
+| `src/lib.rs` | 1442 B |
+
+## Notes
+
+Full semantic queries (find_implementations, get_type_hierarchy, function_call_graph, struct_field_xref, resolve_type) require mapping symbol names to FilePosition offsets — that lands in iter 3.5. This tool confirms the ASG loads and the VFS is populated correctly.

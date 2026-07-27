@@ -1,0 +1,14 @@
+[package]
+name = "sample_crate"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+cfg-if = "1"      # usado por is_release() — para test de cfg-if
+once_cell = "1"  # usado por CACHED_VALUE — para test de sync::OnceCell
+
+[dev-dependencies]
+pretty_assertions = "1"  # usado en tests — para test de dev-deps reales

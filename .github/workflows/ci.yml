@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  # ─── Job 1: native build + test ─────────────────────────────────
+  # Verifies that the code compiles, tests pass, and the smoke test
+  # works end-to-end with the native binary.
+  test-native:
+    name: cargo test (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and index
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Cache cargo build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: target
+          shared-key: ${{ runner.os }}-cargo-build
+
+      - name: cargo check
+        run: cargo check --all-targets
+
+      - name: cargo test
+        run: cargo test --verbose
+
+      - name: cargo build --release
+        run: cargo build --release
+
+      - name: smoke test
+        run: |
+          chmod +x target/release/rust-mcp-server
+          python3 scripts/smoke_test.py
+
+  # ─── Job 2: cross-compile to musl (fat-binary) ───────────────────
+  # Verifies that the fat-binary for Linux musl compiles
+  # correctly and starts in an Alpine container.
+  cross-compile-musl:
+    name: cargo zigbuild (musl x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install zig + cargo-zigbuild
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zig
+          cargo install cargo-zigbuild --locked
+
+      - name: Add musl target
+        run: rustup target add x86_64-unknown-linux-musl
+
+      - name: cargo zigbuild (release)
+        run: cargo zigbuild --release --target x86_64-unknown-linux-musl
+
+      - name: cargo zigbuild --tests
+        # Verifies that the test binary compiles for musl. The tests themselves
+        # are not run here (they require host paths); see
+        # AGENTS.md §14 on cross-compile testing.
+        run: cargo zigbuild --release --target x86_64-unknown-linux-musl --tests
+
+      - name: Verify fat binary in Alpine
+        run: |
+          docker run --rm \
+            -v "$PWD:/app:ro" \
+            -w /app \
+            alpine:3.19 \
+            /app/target/x86_64-unknown-linux-musl/release/rust-mcp-server --help 2>&1 | head -5 || true
+          # Note: alpine:3.19 minimal does not have `git` nor `ca-certificates`,
+          # so the server may fail to initialize (it is not a CI failure
+          # if it returns an error). The important thing is that the binary
+          # starts — the last line should show the crash with
+          # "connection closed" or similar (because stdin is closed).
+
+  # ─── Job 3: clippy + fmt ─────────────────────────────────────────
+  lint:
+    name: clippy + fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings

@@ -1,0 +1,20 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# Project: `sample_crate`
+
+| Field | Value |
+|---|---|
+| **Name** | `sample_crate` |
+| **Alias** | `sample` |
+| **Kind** | crate |
+| **Path** | `/Users/alejandro.ferreira/Carrefour/local/ams/rust-mcp-server/tests/fixtures/sample_crate` |
+
+## Package
+
+| Field | Value |
+|---|---|
+| **Crate name** | `sample_crate` |
+| **Version** | `0.1.0` |
+| **Edition** | `2021` |

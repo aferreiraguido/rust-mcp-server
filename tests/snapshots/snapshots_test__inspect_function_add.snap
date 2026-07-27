@@ -1,0 +1,17 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# `add`
+
+| Field | Value |
+|---|---|
+| **File** | `/Users/alejandro.ferreira/Carrefour/local/ams/rust-mcp-server/tests/fixtures/sample_crate/src/lib.rs` |
+| **Visibility** | `pub` |
+| **Signature** | `fn add(a: i32, b: i32) -> i32` |
+
+## Body
+
+```rust
+pub fn add (a : i32 , b : i32) -> i32 { a + b }
+```

@@ -1,0 +1,27 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# Program Summary: `sample_crate`
+
+## Crate
+
+- **Name**: `sample_crate`
+- **Version**: `0.1.0`
+- **Edition**: `2021`
+
+## Counts
+
+| Item | Count |
+|------|------|
+| Files (`.rs`) | 1 |
+| Functions | 4 |
+| Structs | 0 |
+| Enums | 0 |
+| Traits | 0 |
+| Impls | 0 |
+| Modules | 1 |
+| Macros | 0 |
+| Total LOC | 64 |
+| Direct deps | 3 |
+| Features | 0 |

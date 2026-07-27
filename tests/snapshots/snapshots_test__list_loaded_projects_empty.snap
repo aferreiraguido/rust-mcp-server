@@ -1,0 +1,9 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# Loaded Projects
+
+_No projects loaded._
+
+Use `load_rust_project` to load a crate or workspace.

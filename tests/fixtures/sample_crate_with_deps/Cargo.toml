@@ -1,0 +1,14 @@
+[package]
+name = "sample_crate_with_deps"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = "1"               # declared but NOT used in code
+unused_dep = "0.1"        # declared but NOT used in code
+
+[dev-dependencies]
+unused_dev_dep = "0.1"   # declared in dev-deps but NOT used in tests

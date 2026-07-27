@@ -1,0 +1,113 @@
+[package]
+name = "rust-mcp-server"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "MCP server for exhaustive Rust code analysis (ground truth from ASG)"
+license = "MIT"
+repository = "https://github.com/softtek/rust-mcp-server"
+readme = "README.md"
+build = "build.rs"
+
+[[bin]]
+name = "rust-mcp-server"
+path = "src/main.rs"
+
+[lib]
+name = "rust_mcp_server"
+path = "src/lib.rs"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CURRENT ITERATION: 8+ (37 tools, 78 tests, full semantic ASG)
+# ─────────────────────────────────────────────────────────────────────────────
+# Current status:
+# - 37 MCP tools (source management, listings, inspections, cross-refs, bug-hunt)
+# - Semantic ASG via ra_ap_* 0.0.343 (analysis_host, symbol_resolver)
+# - Bug-hunt: 6 sweeps (4 ra_ap_syntax + 1 semantic ra_ap_* + 1 heuristic)
+# - syn legacy in rust_analyzer_utils.rs (future migration scope)
+# - 78 tests (33 unit + 45 golden snapshots)
+# - Cross-compile musl + multi-stage Dockerfile + CI workflow (3 jobs)
+#
+# See AGENTS.md §13 "Iteration plan" for the full roadmap.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[dependencies]
+# MCP SDK oficial (4t145, mismo publisher que ra_ap_*)
+rmcp = { version = "2.2", features = ["server", "macros", "schemars", "transport-io"] }
+
+# Async runtime (requerido por rmcp)
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time", "io-util", "fs"] }
+
+# Serialización
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# JSON Schema (para inputSchema de tools)
+schemars = { version = "1", features = ["derive"] }
+
+# Errores
+thiserror = "2"
+anyhow = "1"
+
+# Fechas (para expiry de ProjectEntry)
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging estructurado
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "std"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Arc usado por ra_ap_base_db (triomphe, no std)
+triomphe = "0.1"
+
+# Hash + UUID
+uuid = { version = "1", features = ["v4"] }
+
+# Iteration 2: parsing + source loading
+syn = { version = "2", features = ["full", "extra-traits", "parsing", "visit"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+quote = "1"
+prettyplease = "0.2"
+toml = "0.8"
+walkdir = "2"
+glob = "0.3"
+url = "2"
+# gix (pure-Rust git) and zip/tar/flate2 (archives) — used by project_loader.
+# Activated only when the user passes a Git/archive URL; the default feature
+# keeps the binary small.
+gix = { version = "0.66", default-features = false, features = ["blocking-network-client", "worktree-mutation"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = "1"
+ureq = { version = "2", default-features = false }
+xz2 = "0.1"
+zstd = "0.13"
+
+# Iteration 3: rust-analyzer as semantic ASG.
+# rust-analyzer snapshot from 2026-07-20 (published by 4t145).
+# Heavy: 5-15 min compilation, ~80-150 MB stripped binary.
+ra_ap_syntax = "=0.0.343"
+ra_ap_hir = "=0.0.343"
+ra_ap_ide = "=0.0.343"
+ra_ap_project_model = "=0.0.343"
+ra_ap_base_db = "=0.0.343"
+ra_ap_vfs = "=0.0.343"
+ra_ap_cfg = "=0.0.343"
+ra_ap_ide_db = "=0.0.343"
+ra_ap_test_fixture = "=0.0.343"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util", "fs"] }
+tempfile = "3"
+insta = { version = "1", features = ["yaml", "json"] }
+futures = "0.3"
+
+[profile.release]
+# Fat-binary friendly: LTO + strip + opt-level z
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+strip = "symbols"
+panic = "abort"

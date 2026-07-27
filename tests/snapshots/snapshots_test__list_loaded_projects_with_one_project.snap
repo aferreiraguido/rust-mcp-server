@@ -1,0 +1,9 @@
+---
+source: tests/snapshots_test.rs
+expression: text
+---
+# Loaded Projects (1)
+
+| Name | Alias | Kind | Path |
+|------|-------|------|------|
+| `sample_crate` | `sample` | crate | `/Users/alejandro.ferreira/Carrefour/local/ams/rust-mcp-server/tests/fixtures/sample_crate` |
