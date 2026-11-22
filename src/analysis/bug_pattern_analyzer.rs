@@ -14,6 +14,7 @@
 //! Each sweep returns `Vec<Finding>` with category / severity / code /
 //! location / evidence.
 
+use crate::analysis::path_utils::display_rel_path;
 use crate::analysis::rust_analyzer_utils::RustAnalyzerUtils;
 use crate::model::ProjectEntry;
 use crate::model::{Finding, FindingCategory, FindingSeverity};
@@ -66,11 +67,7 @@ impl BugPatternAnalyzer {
         use ra_ap_syntax::ast::{BlockExpr, Fn, Impl, Trait};
         let mut findings = Vec::new();
         for (path, source, content) in sources {
-            let rel = path
-                .strip_prefix(&entry.path)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
+            let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
 
             // BlockExpr with unsafe_token → `unsafe { ... }`
             crate::analysis::ra_walker::walk_typed::<BlockExpr, _>(
@@ -166,11 +163,7 @@ impl BugPatternAnalyzer {
         use ra_ap_syntax::ast::MethodCallExpr;
         let mut findings = Vec::new();
         for (path, source, content) in sources {
-            let rel = path
-                .strip_prefix(&entry.path)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
+            let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
             crate::analysis::ra_walker::walk_typed::<MethodCallExpr, _>(
                 source.syntax(),
                 |call| {
@@ -222,11 +215,7 @@ impl BugPatternAnalyzer {
         ];
         let mut findings = Vec::new();
         for (path, source, content) in sources {
-            let rel = path
-                .strip_prefix(&entry.path)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
+            let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
             // Macros like `mem::transmute!(...)` (not common but possible)
             crate::analysis::ra_walker::walk_typed::<MacroCall, _>(
                 source.syntax(),
@@ -285,11 +274,7 @@ impl BugPatternAnalyzer {
         const PANIC_MACROS: &[&str] = &["panic", "unreachable", "todo", "unimplemented"];
         let mut findings = Vec::new();
         for (path, source, content) in sources {
-            let rel = path
-                .strip_prefix(&entry.path)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
+            let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
             crate::analysis::ra_walker::walk_typed::<MacroCall, _>(
                 source.syntax(),
                 |m| {
@@ -354,7 +339,11 @@ impl BugPatternAnalyzer {
         let mut findings = Vec::new();
         let dep_files = RustAnalyzerUtils::rust_files(entry);
         for (name, scope, _value) in manifest.direct_dependencies() {
-            let count = crate::analysis::text_utils::count_whole_word_matches(&dep_files, &name);
+            // Cargo dependency names use `-` (e.g. `async-trait`) while Rust
+            // code refers to them with `_` (e.g. `async_trait`). Normalize
+            // before the whole-word search to avoid false positives.
+            let needle = name.replace('-', "_");
+            let count = crate::analysis::text_utils::count_whole_word_matches(&dep_files, &needle);
             if count == 0 {
                 let severity = match scope {
                     "normal" => FindingSeverity::Low,
@@ -422,6 +411,12 @@ impl BugPatternAnalyzer {
             let Some(loc) = locs.first() else { continue };
             // Filter by visibility and implicit references.
             if is_pub_loc(loc) {
+                continue;
+            }
+            // Methods inside `impl Trait for Type` are invoked via trait
+            // objects; `find_all_refs` often does not resolve those callers,
+            // so they would be false positives. Skip them.
+            if loc.is_trait_method {
                 continue;
             }
             // If it has `#[test]`, `#[derive]`, `#[no_mangle]`, or `#[cfg]`,

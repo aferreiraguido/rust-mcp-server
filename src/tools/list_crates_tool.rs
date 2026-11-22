@@ -63,7 +63,13 @@ impl McpTool for ListCratesTool {
             members.len()
         ));
         for m in &members {
-            let path = entry.path.join(m);
+            // For a single crate the member IS the root: check
+            // `entry.path/Cargo.toml`, not `entry.path/<name>/Cargo.toml`.
+            let path = if entry.member_crates.is_empty() {
+                entry.path.clone()
+            } else {
+                entry.path.join(m)
+            };
             let has_cargo = path.join("Cargo.toml").exists();
             md.push_str(&format!(
                 "- `{}` {}\n",

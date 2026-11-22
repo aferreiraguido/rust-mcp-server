@@ -9,6 +9,7 @@
 pub mod analysis_host;
 pub mod bug_pattern_analyzer;
 pub mod cargo_manifest;
+pub mod path_utils;
 pub mod ra_walker;
 pub mod rust_analyzer_utils;
 pub mod symbol_resolver;

@@ -106,7 +106,17 @@ impl ProjectLoader {
             )
             .with_path(source));
         }
-        Ok(path)
+        // Cache an absolute path: every tool resolves files against
+        // `ProjectEntry.path`, so it must not depend on the process CWD.
+        // `std::path::absolute` avoids the `\\?\` verbatim prefix that
+        // `canonicalize` adds on Windows.
+        std::path::absolute(&path).map_err(|e| {
+            ProjectLoadError::new(
+                ProjectLoadErrorCode::InternalError,
+                format!("Cannot make path absolute: {} ({})", source, e),
+            )
+            .with_path(source)
+        })
     }
 
     async fn resolve_git(&self, url: &str) -> ProjectLoadResult<PathBuf> {

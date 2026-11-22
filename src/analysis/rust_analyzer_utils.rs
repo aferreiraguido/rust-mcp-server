@@ -12,6 +12,7 @@
 #![allow(clippy::result_large_err)]
 
 use crate::analysis::cargo_manifest::CargoManifest;
+use crate::analysis::path_utils::{display_rel_path, is_ignored};
 use crate::analysis::syntax::{ItemKind, ParsedFile};
 use crate::model::ProjectEntry;
 use serde::Serialize;
@@ -243,6 +244,7 @@ impl RustAnalyzerUtils {
     pub fn rust_files(entry: &ProjectEntry) -> Vec<PathBuf> {
         WalkDir::new(&entry.path)
             .into_iter()
+            .filter_entry(|e| !e.file_type().is_dir() || !is_ignored(&entry.path, e.path()))
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
@@ -259,7 +261,7 @@ impl RustAnalyzerUtils {
                 Ok(p) => out.push(p),
                 Err(syn_err) => {
                     return Err(AnalysisError::Syntax {
-                        path: path.display().to_string(),
+                        path: Self::rel_display(entry, &path),
                         message: format!("{:?}", syn_err),
                     })
                 }
@@ -279,7 +281,7 @@ impl RustAnalyzerUtils {
                     out.push(FunctionInfo {
                         name: f.sig.ident.to_string(),
                         signature: quote_signature(&f.sig),
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         is_pub: matches!(f.vis, syn::Visibility::Public(_)),
                         is_async: f.sig.asyncness.is_some(),
@@ -308,7 +310,7 @@ impl RustAnalyzerUtils {
                         let info = FunctionInfo {
                             name: f.sig.ident.to_string(),
                             signature: quote_signature(&f.sig),
-                            file: pf.path.display().to_string(),
+                            file: Self::rel_display(entry, &pf.path),
                             line: line_of_item(&pf.path, item),
                             is_pub: matches!(f.vis, syn::Visibility::Public(_)),
                             is_async: f.sig.asyncness.is_some(),
@@ -337,7 +339,7 @@ impl RustAnalyzerUtils {
                 if let Item::Struct(s) = item {
                     out.push(StructInfo {
                         name: s.ident.to_string(),
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         kind: struct_kind(s),
                         fields: extract_struct_fields(s),
@@ -362,7 +364,7 @@ impl RustAnalyzerUtils {
                     if s.ident == struct_name {
                         return Ok(Some(StructInfo {
                             name: s.ident.to_string(),
-                            file: pf.path.display().to_string(),
+                            file: Self::rel_display(entry, &pf.path),
                             line: line_of_item(&pf.path, item),
                             kind: struct_kind(s),
                             fields: extract_struct_fields(s),
@@ -386,7 +388,7 @@ impl RustAnalyzerUtils {
                 if let Item::Enum(e) = item {
                     out.push(EnumInfo {
                         name: e.ident.to_string(),
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         variants: e
                             .variants
@@ -414,7 +416,7 @@ impl RustAnalyzerUtils {
                     if e.ident == enum_name {
                         return Ok(Some(EnumInfo {
                             name: e.ident.to_string(),
-                            file: pf.path.display().to_string(),
+                            file: Self::rel_display(entry, &pf.path),
                             line: line_of_item(&pf.path, item),
                             variants: e
                                 .variants
@@ -454,7 +456,7 @@ impl RustAnalyzerUtils {
                         .collect();
                     out.push(TraitInfo {
                         name: t.ident.to_string(),
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         methods,
                         doc_comment: extract_doc_comment(&t.attrs),
@@ -487,7 +489,7 @@ impl RustAnalyzerUtils {
                             .collect();
                         return Ok(Some(TraitInfo {
                             name: t.ident.to_string(),
-                            file: pf.path.display().to_string(),
+                            file: Self::rel_display(entry, &pf.path),
                             line: line_of_item(&pf.path, item),
                             methods,
                             doc_comment: extract_doc_comment(&t.attrs),
@@ -536,7 +538,7 @@ impl RustAnalyzerUtils {
                     out.push(ImplInfo {
                         self_type: self_ty,
                         trait_name,
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         methods,
                     });
@@ -557,7 +559,7 @@ impl RustAnalyzerUtils {
                 if let Item::Mod(m) = item {
                     out.push(ModuleInfo {
                         name: m.ident.to_string(),
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         is_inline: m.content.is_some(),
                         visibility: format_visibility(&m.vis),
@@ -592,7 +594,7 @@ impl RustAnalyzerUtils {
                     };
                     out.push(MacroInfo {
                         name,
-                        file: pf.path.display().to_string(),
+                        file: Self::rel_display(entry, &pf.path),
                         line: line_of_item(&pf.path, item),
                         kind: kind.to_string(),
                         args: Some(m.mac.tokens.to_string()),
@@ -614,7 +616,7 @@ impl RustAnalyzerUtils {
                 .map(|c| c.lines().count() as u32)
                 .unwrap_or(0);
             out.push(FileSummary {
-                file: pf.path.display().to_string(),
+                file: Self::rel_display(entry, &pf.path),
                 function_count: pf.filter(ItemKind::Function).count() as u32,
                 struct_count: pf.filter(ItemKind::Struct).count() as u32,
                 enum_count: pf.filter(ItemKind::Enum).count() as u32,
@@ -687,7 +689,7 @@ impl RustAnalyzerUtils {
                 };
                 if matches {
                     out.push(ReferenceHit {
-                        file: path.display().to_string(),
+                        file: Self::rel_display(entry, &path),
                         line: (i + 1) as u32,
                         context: line.to_string(),
                     });
@@ -760,6 +762,13 @@ impl RustAnalyzerUtils {
             }
         }
         Ok(false)
+    }
+
+    /// Converts an absolute path under the project root to a stable,
+    /// POSIX-style relative path (`src/lib.rs`). Falls back to the path
+    /// itself if it is not under the root.
+    fn rel_display(entry: &ProjectEntry, abs_path: &Path) -> String {
+        display_rel_path(abs_path.strip_prefix(&entry.path).unwrap_or(abs_path))
     }
 }
 

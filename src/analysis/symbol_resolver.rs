@@ -12,7 +12,7 @@
 
 use ra_ap_ide::{Analysis, FileId, FilePosition};
 use ra_ap_syntax::{
-    ast::{self, HasAttrs, HasModuleItem, HasName, HasVisibility},
+    ast::{self, HasAttrs, HasModuleItem, HasName, HasVisibility, StructKind},
     AstNode, Edition, SyntaxKind, SyntaxNode, TextRange,
 };
 use std::collections::HashMap;
@@ -40,6 +40,7 @@ pub enum SymbolKind {
     TypeAlias,
     Module,
     ImplMethod,
+    Field,
 }
 
 impl SymbolKind {
@@ -55,6 +56,7 @@ impl SymbolKind {
             SymbolKind::TypeAlias => "type",
             SymbolKind::Module => "mod",
             SymbolKind::ImplMethod => "impl method",
+            SymbolKind::Field => "field",
         }
     }
 }
@@ -73,6 +75,10 @@ pub struct SymbolLocation {
     /// Whether the item is public (`pub fn`, `pub struct`, etc.). Public
     /// items are ignored by the dead-code sweep.
     pub is_pub: bool,
+    /// True when the symbol is a method inside `impl Trait for Type`.
+    /// Such methods are invoked via trait objects, so `find_all_refs`
+    /// may not see direct callers — they must not be reported as dead code.
+    pub is_trait_method: bool,
     /// Attributes indicating the item is implicitly referenced
     /// by the toolchain (test runner, derive macros, linker, etc.).
     /// Items with any of these are NOT marked as dead code.
@@ -139,6 +145,7 @@ impl SymbolResolver {
             SymbolKind::Const => 6,
             SymbolKind::Static => 7,
             SymbolKind::ImplMethod => 8,
+            SymbolKind::Field => 9,
         };
         let mut sorted: Vec<&SymbolLocation> = candidates.iter().collect();
         sorted.sort_by_key(|s| priority(s.kind));
@@ -194,17 +201,62 @@ fn register_item(
     out: &mut HashMap<String, Vec<SymbolLocation>>,
 ) {
     match item {
-        ast::Item::Fn(f) => register_named(f, f.name(), SymbolKind::Function, file_id, out),
-        ast::Item::Struct(s) => register_named(s, s.name(), SymbolKind::Struct, file_id, out),
-        ast::Item::Enum(e) => register_named(e, e.name(), SymbolKind::Enum, file_id, out),
-        ast::Item::Trait(t) => register_named(t, t.name(), SymbolKind::Trait, file_id, out),
-        ast::Item::Const(c) => register_named(c, c.name(), SymbolKind::Const, file_id, out),
-        ast::Item::Static(s) => register_named(s, s.name(), SymbolKind::Static, file_id, out),
+        ast::Item::Fn(f) => register_named(f, f.name(), SymbolKind::Function, file_id, out, false),
+        ast::Item::Struct(s) => {
+            register_named(s, s.name(), SymbolKind::Struct, file_id, out, false);
+            // Register struct fields too (needed by struct_field_xref).
+            match s.kind() {
+                StructKind::Record(field_list) => {
+                    for field in field_list.fields() {
+                        if let Some(name_ref) = field.name() {
+                            let Some(ident) = name_ref.ident_token() else { continue };
+                            let name_text = ident.text().to_string();
+                            let name_range = name_ref.syntax().text_range();
+                            let full_range = field.syntax().text_range();
+                            let sl = SymbolLocation {
+                                name: name_text.clone(),
+                                kind: SymbolKind::Field,
+                                file_id,
+                                name_range,
+                                full_range,
+                                is_pub: false,
+                                is_trait_method: false,
+                                implicit_references: ImplicitReferences::default(),
+                            };
+                            out.entry(name_text).or_default().push(sl);
+                        }
+                    }
+                }
+                StructKind::Tuple(field_list) => {
+                    for (i, field) in field_list.fields().enumerate() {
+                        let name_text = format!("{}", i);
+                        let name_range = field.syntax().text_range();
+                        let full_range = field.syntax().text_range();
+                        let sl = SymbolLocation {
+                            name: name_text.clone(),
+                            kind: SymbolKind::Field,
+                            file_id,
+                            name_range,
+                            full_range,
+                            is_pub: false,
+                            is_trait_method: false,
+                            implicit_references: ImplicitReferences::default(),
+                        };
+                        out.entry(name_text).or_default().push(sl);
+                    }
+                }
+                StructKind::Unit => {}
+            }
+        }
+        ast::Item::Enum(e) => register_named(e, e.name(), SymbolKind::Enum, file_id, out, false),
+        ast::Item::Trait(t) => register_named(t, t.name(), SymbolKind::Trait, file_id, out, false),
+        ast::Item::Const(c) => register_named(c, c.name(), SymbolKind::Const, file_id, out, false),
+        ast::Item::Static(s) => register_named(s, s.name(), SymbolKind::Static, file_id, out, false),
         ast::Item::TypeAlias(ta) => {
-            register_named(ta, ta.name(), SymbolKind::TypeAlias, file_id, out)
+            register_named(ta, ta.name(), SymbolKind::TypeAlias, file_id, out, false)
         }
         ast::Item::Module(m) => {
-            register_named(m, m.name(), SymbolKind::Module, file_id, out);
+            register_named(m, m.name(), SymbolKind::Module, file_id, out, false);
             // Recurse: the module can have nested items (e.g.
             // `mod tests { fn test_add() {...} }`).
             if let Some(items) = m.item_list() {
@@ -214,12 +266,23 @@ fn register_item(
             }
         }
         ast::Item::Impl(i) => {
+            // `impl Trait for Type` methods are invoked via trait objects;
+            // `find_all_refs` may not see direct callers, so they must not
+            // be reported as dead code.
+            let is_trait_impl = i.trait_().is_some();
             // Register the impl's methods. Must go through
             // AssocItemList -> AssocItems.
             if let Some(list) = i.assoc_item_list() {
                 for assoc in list.assoc_items() {
                     if let ast::AssocItem::Fn(f) = assoc {
-                        register_named(&f, f.name(), SymbolKind::ImplMethod, file_id, out);
+                        register_named(
+                            &f,
+                            f.name(),
+                            SymbolKind::ImplMethod,
+                            file_id,
+                            out,
+                            is_trait_impl,
+                        );
                     }
                 }
             }
@@ -234,6 +297,7 @@ fn register_named<N>(
     kind: SymbolKind,
     file_id: FileId,
     out: &mut HashMap<String, Vec<SymbolLocation>>,
+    is_trait_method: bool,
 ) where
     N: AstNode + HasVisibility + HasAttrs,
 {
@@ -257,6 +321,7 @@ fn register_named<N>(
         name_range,
         full_range,
         is_pub,
+        is_trait_method,
         implicit_references,
     });
 }

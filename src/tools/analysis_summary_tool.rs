@@ -15,6 +15,7 @@
 //! deferred to iter 3.5 (see `AGENTS.md` §13).
 
 use crate::analysis::analysis_host::ProjectAnalysisHost;
+use crate::analysis::path_utils::{display_rel_path, is_ignored};
 use crate::project_manager::ProjectManager;
 use crate::tools::base_rust_tool::BaseRustTool;
 use crate::tools::mcp_tool::McpTool;
@@ -94,6 +95,7 @@ impl McpTool for AnalysisSummaryTool {
         let mut total_bytes = 0usize;
         for entry in WalkDir::new(&host.root)
             .into_iter()
+            .filter_entry(|e| !e.file_type().is_dir() || !is_ignored(&host.root, e.path()))
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
@@ -114,16 +116,13 @@ impl McpTool for AnalysisSummaryTool {
         let mut file_list: Vec<(String, u64)> = Vec::new();
         for entry in WalkDir::new(&host.root)
             .into_iter()
+            .filter_entry(|e| !e.file_type().is_dir() || !is_ignored(&host.root, e.path()))
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
         {
-            let rel = entry
-                .path()
-                .strip_prefix(&host.root)
-                .unwrap_or(entry.path())
-                .to_string_lossy()
-                .to_string();
+            let rel =
+                display_rel_path(entry.path().strip_prefix(&host.root).unwrap_or(entry.path()));
             let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
             file_list.push((rel, size));
         }

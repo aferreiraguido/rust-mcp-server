@@ -81,50 +81,45 @@ impl McpTool for StructFieldXrefTool {
                 .map_err(|e| ErrorData::internal_error(format!("join: {}", e), None))?
                 .map_err(|e| ErrorData::internal_error(format!("load: {}", e), None))?;
 
-        let loc = match resolver.resolve(&field) {
-            Some(l) => l.clone(),
-            None => {
-                return Ok(BaseRustTool::ok_error(format!(
-                    "Field `{}` not found",
-                    field
-                )));
-            }
-        };
-
-        let position = FilePosition {
-            file_id: loc.file_id,
-            offset: loc.name_range.start(),
-        };
-        let config = FindAllRefsConfig {
-            search_scope: None,
-            ra_fixture: RaFixtureConfig::<'_>::default(),
-            exclude_imports: true,
-            exclude_tests: false,
-        };
-        let analysis = host.analysis();
-        let result = analysis.find_all_refs(position, &config).ok().flatten();
-        let results = match result {
-            Some(r) => r,
-            None => {
-                return Ok(BaseRustTool::ok_error(format!(
-                    "No references found for `{}`",
-                    field
-                )));
-            }
-        };
+        let locs = resolver.resolve_all(&field);
+        if locs.is_empty() {
+            return Ok(BaseRustTool::ok_error(format!(
+                "Field `{}` not found",
+                field
+            )));
+        }
 
         let mut refs: Vec<(ra_ap_ide::FileId, ra_ap_syntax::TextRange)> = Vec::new();
-        for result in &results {
-            for (file_id, ranges) in &result.references {
-                for (range, _cat) in ranges {
-                    refs.push((*file_id, *range));
+        for loc in &locs {
+            let position = FilePosition {
+                file_id: loc.file_id,
+                offset: loc.name_range.start(),
+            };
+            let config = FindAllRefsConfig {
+                search_scope: None,
+                ra_fixture: RaFixtureConfig::<'_>::default(),
+                exclude_imports: true,
+                exclude_tests: false,
+            };
+            let analysis = host.analysis();
+            let result = analysis.find_all_refs(position, &config).ok().flatten();
+            let Some(result) = result else {
+                continue;
+            };
+            for search_result in &result {
+                for (file_id, ranges) in &search_result.references {
+                    for (range, _cat) in ranges {
+                        refs.push((*file_id, *range));
+                    }
                 }
             }
         }
         refs.retain(|(fid, range)| {
-            !(*fid == loc.file_id
-                && range.start() >= loc.name_range.start()
-                && range.end() <= loc.full_range.end())
+            !locs.iter().any(|loc| {
+                *fid == loc.file_id
+                    && range.start() >= loc.name_range.start()
+                    && range.end() <= loc.full_range.end()
+            })
         });
         refs.sort_by_key(|(fid, range)| (fid.index(), range.start()));
         refs.truncate(max);
