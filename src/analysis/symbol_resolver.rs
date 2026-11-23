@@ -209,7 +209,9 @@ fn register_item(
                 StructKind::Record(field_list) => {
                     for field in field_list.fields() {
                         if let Some(name_ref) = field.name() {
-                            let Some(ident) = name_ref.ident_token() else { continue };
+                            let Some(ident) = name_ref.ident_token() else {
+                                continue;
+                            };
                             let name_text = ident.text().to_string();
                             let name_range = name_ref.syntax().text_range();
                             let full_range = field.syntax().text_range();
@@ -251,7 +253,9 @@ fn register_item(
         ast::Item::Enum(e) => register_named(e, e.name(), SymbolKind::Enum, file_id, out, false),
         ast::Item::Trait(t) => register_named(t, t.name(), SymbolKind::Trait, file_id, out, false),
         ast::Item::Const(c) => register_named(c, c.name(), SymbolKind::Const, file_id, out, false),
-        ast::Item::Static(s) => register_named(s, s.name(), SymbolKind::Static, file_id, out, false),
+        ast::Item::Static(s) => {
+            register_named(s, s.name(), SymbolKind::Static, file_id, out, false)
+        }
         ast::Item::TypeAlias(ta) => {
             register_named(ta, ta.name(), SymbolKind::TypeAlias, file_id, out, false)
         }
@@ -342,9 +346,8 @@ fn collect_implicit_refs(attrs: &[ra_ap_syntax::ast::Attr]) -> ImplicitReference
         // First detect `#[cfg(...)]` by the Meta variant.
         // This is necessary because `attr.path()` returns None for
         // `Meta::CfgAttrMeta` and `Meta::CfgMeta` (see ast/node_ext.rs).
-        if let Some(
-            ra_ap_syntax::ast::Meta::CfgAttrMeta(_) | ra_ap_syntax::ast::Meta::CfgMeta(_),
-        ) = attr.meta()
+        if let Some(ra_ap_syntax::ast::Meta::CfgAttrMeta(_) | ra_ap_syntax::ast::Meta::CfgMeta(_)) =
+            attr.meta()
         {
             r.cfg = true;
             continue;

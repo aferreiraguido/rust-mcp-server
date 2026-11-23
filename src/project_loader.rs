@@ -509,9 +509,11 @@ mod tests {
         );
         match result {
             Ok(path) => {
-                assert!(path.join("Cargo.toml").exists()
-                    || path.join("pyproject.toml").exists()
-                    || path.join("setup.py").exists());
+                assert!(
+                    path.join("Cargo.toml").exists()
+                        || path.join("pyproject.toml").exists()
+                        || path.join("setup.py").exists()
+                );
             }
             Err(e) => {
                 // Network failure is not a test error — ignored.

@@ -121,8 +121,12 @@ impl McpTool for AnalysisSummaryTool {
             .filter(|e| e.file_type().is_file())
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
         {
-            let rel =
-                display_rel_path(entry.path().strip_prefix(&host.root).unwrap_or(entry.path()));
+            let rel = display_rel_path(
+                entry
+                    .path()
+                    .strip_prefix(&host.root)
+                    .unwrap_or(entry.path()),
+            );
             let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
             file_list.push((rel, size));
         }

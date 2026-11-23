@@ -58,8 +58,7 @@ impl McpTool for FindDeadCodeTool {
         let findings = tokio::task::spawn_blocking(move || {
             let host = crate::analysis::analysis_host::ProjectAnalysisHost::load(&entry.path)
                 .map_err(|e| format!("analysis load failed: {}", e))?;
-            BugPatternAnalyzer::find_dead_code(&host)
-                .map_err(|e| format!("analyze: {}", e))
+            BugPatternAnalyzer::find_dead_code(&host).map_err(|e| format!("analyze: {}", e))
         })
         .await
         .map_err(|e| ErrorData::internal_error(format!("join: {}", e), None))?

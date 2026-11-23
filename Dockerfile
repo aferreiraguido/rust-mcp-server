@@ -71,9 +71,12 @@ RUN adduser -D -u 1000 mcp
 USER mcp
 WORKDIR /home/mcp
 
-# El server habla JSON-RPC por stdin/stdout. NO exponemos puertos.
-# stdin abierto para el cliente MCP. tini reapa el proceso si muere.
+# Soporta dual transport:
+# - HTTP por defecto (--mode http): expone el puerto 8080 en /mcp
+# - stdio: podman|docker run -i --rm rust-mcp-server:latest --mode stdio
+EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/rust-mcp-server"]
+CMD ["--mode", "http", "--port", "8080", "--host", "0.0.0.0"]
 
 # Labels para documentar la imagen.
 LABEL org.opencontainers.image.title="rust-mcp-server"

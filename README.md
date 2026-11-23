@@ -26,11 +26,33 @@ Binary: `target/release/rust-mcp-server` (~13 MB, arm64/x86_64).
 
 ### Run
 
-MCP Server use **stdio transport** — is spawned as a subprocess of OpenCode, Claude Desktop, Visual Studio Code, etc.:
+#### stdio mode (default)
+
+For local subprocess use (OpenCode, Claude Desktop, Visual Studio Code):
 
 ```bash
 ./target/release/rust-mcp-server
+# or explicitly:
+./target/release/rust-mcp-server --mode stdio
 ```
+
+#### HTTP Streamable mode
+
+For networked or containerized deployment over Streamable HTTP (`/mcp`):
+
+```bash
+./target/release/rust-mcp-server --mode http --port 8080 --host 0.0.0.0
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--mode` | `stdio` | Transport mode: `stdio` or `http` |
+| `--port` | `8080` | HTTP port to bind |
+| `--host` | `0.0.0.0` | HTTP host to bind |
+| `--api-keys` | _none_ | Path to JSON keys file (`[{"name":"...", "apiKey":"..."}]`) or comma-separated keys (`sk-1,sk-2`) |
+| `--max-threads` | `16` | Worker thread count |
+
+When `--api-keys` is set, all requests to `/mcp` require an `Authorization: Bearer <api-key>` header (missing/invalid returns `401 Unauthorized`). Without `--api-keys`, authentication is disabled.
 
 ### Logging
 
@@ -44,19 +66,21 @@ Default is `/tmp/rust_mcp_server.log`. Configurable via env:
 ### Test
 
 ```bash
-cargo test                            # 78 tests: 33 unit + 45 golden snapshots
+cargo test                            # 84 tests: 37 unit + 2 http + 45 golden snapshots
 cargo test --release                  # same but optimized
 INSTA_UPDATE=always cargo test        # generate snapshots
 ```
 
-### Smoke test end-to-end
+### Smoke tests end-to-end
 
-```bash
-cargo build --release
-python3 scripts/smoke_test.py
-```
-
-The script performs the full JSON-RPC handshake: `initialize` → `tools/list` → loads the fixture → invokes 11 tools → verifies outputs → `exit`. Verifies the server works end-to-end with a real MCP client.
+- **stdio mode**:
+  ```bash
+  python3 scripts/smoke_test.py
+  ```
+- **HTTP Streamable mode**:
+  ```bash
+  ./scripts/smoke-http.sh --port 18090
+  ```
 
 ---
 

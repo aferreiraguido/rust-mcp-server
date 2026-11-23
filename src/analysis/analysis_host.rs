@@ -4,17 +4,15 @@ use thiserror::Error;
 use triomphe::Arc;
 
 use ra_ap_cfg::CfgOptions;
-use ra_ap_vfs::AbsPathBuf;
+use ra_ap_ide::{Analysis, AnalysisHost, Edition};
 use ra_ap_ide_db::{
     base_db::{
-        CrateGraphBuilder, CrateOrigin, CrateWorkspaceData, Env, FileSet, SourceRoot, VfsPath,
-        target::TargetLoadError,
+        target::TargetLoadError, CrateGraphBuilder, CrateOrigin, CrateWorkspaceData, Env, FileSet,
+        SourceRoot, VfsPath,
     },
-    ChangeWithProcMacros,
-    FileId,
-    RootDatabase,
+    ChangeWithProcMacros, FileId, RootDatabase,
 };
-use ra_ap_ide::{Analysis, AnalysisHost, Edition};
+use ra_ap_vfs::AbsPathBuf;
 use walkdir::WalkDir;
 
 use crate::analysis::path_utils::{display_path, is_ignored};
@@ -162,11 +160,7 @@ impl ProjectAnalysisHost {
         // 6. Create AnalysisHost
         let host = AnalysisHost::with_database(db);
 
-        Ok(ProjectAnalysisHost {
-            root,
-            files,
-            host,
-        })
+        Ok(ProjectAnalysisHost { root, files, host })
     }
 
     /// Returns a snapshot of the analysis.

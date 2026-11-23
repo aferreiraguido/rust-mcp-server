@@ -53,9 +53,7 @@ impl BugPatternAnalyzer {
 
     /// Identical to `find_unsafe_blocks` but accepts pre-parsed sources
     /// (useful when running multiple sweeps to avoid re-parsing).
-    pub fn find_unsafe_blocks(
-        entry: &ProjectEntry,
-    ) -> Result<Vec<Finding>, BugPatternError> {
+    pub fn find_unsafe_blocks(entry: &ProjectEntry) -> Result<Vec<Finding>, BugPatternError> {
         Self::find_unsafe_blocks_in(entry, &Self::parse_all_sources(entry)?)
     }
 
@@ -70,81 +68,69 @@ impl BugPatternAnalyzer {
             let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
 
             // BlockExpr with unsafe_token → `unsafe { ... }`
-            crate::analysis::ra_walker::walk_typed::<BlockExpr, _>(
-                source.syntax(),
-                |block| {
-                    if block.unsafe_token().is_some() {
-                        findings.push(Finding {
-                            category: FindingCategory::Unsafe,
-                            severity: FindingSeverity::Medium,
-                            code: "UNSAFE_BLOCK".to_string(),
-                            message: "unsafe block — review memory safety invariants".to_string(),
-                            file: rel.clone(),
-                            line: line_of_node(block.syntax(), content),
-                            evidence: Some("`unsafe { ... }` block".to_string()),
-                        });
-                    }
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<BlockExpr, _>(source.syntax(), |block| {
+                if block.unsafe_token().is_some() {
+                    findings.push(Finding {
+                        category: FindingCategory::Unsafe,
+                        severity: FindingSeverity::Medium,
+                        code: "UNSAFE_BLOCK".to_string(),
+                        message: "unsafe block — review memory safety invariants".to_string(),
+                        file: rel.clone(),
+                        line: line_of_node(block.syntax(), content),
+                        evidence: Some("`unsafe { ... }` block".to_string()),
+                    });
+                }
+            });
             // Fn with unsafe_token → `unsafe fn`
-            crate::analysis::ra_walker::walk_typed::<Fn, _>(
-                source.syntax(),
-                |f| {
-                    if f.unsafe_token().is_some() {
-                        let name = f
-                            .name()
-                            .map(|n| n.text().to_string())
-                            .unwrap_or_else(|| "<anon>".to_string());
-                        findings.push(Finding {
-                            category: FindingCategory::Unsafe,
-                            severity: FindingSeverity::Medium,
-                            code: "UNSAFE_FN".to_string(),
-                            message: format!("`unsafe fn {}` — review safety invariants", name),
-                            file: rel.clone(),
-                            line: line_of_node(f.syntax(), content),
-                            evidence: None,
-                        });
-                    }
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<Fn, _>(source.syntax(), |f| {
+                if f.unsafe_token().is_some() {
+                    let name = f
+                        .name()
+                        .map(|n| n.text().to_string())
+                        .unwrap_or_else(|| "<anon>".to_string());
+                    findings.push(Finding {
+                        category: FindingCategory::Unsafe,
+                        severity: FindingSeverity::Medium,
+                        code: "UNSAFE_FN".to_string(),
+                        message: format!("`unsafe fn {}` — review safety invariants", name),
+                        file: rel.clone(),
+                        line: line_of_node(f.syntax(), content),
+                        evidence: None,
+                    });
+                }
+            });
             // Impl with unsafe_token → `unsafe impl`
-            crate::analysis::ra_walker::walk_typed::<Impl, _>(
-                source.syntax(),
-                |i| {
-                    if i.unsafe_token().is_some() {
-                        findings.push(Finding {
-                            category: FindingCategory::Unsafe,
-                            severity: FindingSeverity::Medium,
-                            code: "UNSAFE_IMPL".to_string(),
-                            message: "`unsafe impl` — review safety invariants".to_string(),
-                            file: rel.clone(),
-                            line: line_of_node(i.syntax(), content),
-                            evidence: None,
-                        });
-                    }
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<Impl, _>(source.syntax(), |i| {
+                if i.unsafe_token().is_some() {
+                    findings.push(Finding {
+                        category: FindingCategory::Unsafe,
+                        severity: FindingSeverity::Medium,
+                        code: "UNSAFE_IMPL".to_string(),
+                        message: "`unsafe impl` — review safety invariants".to_string(),
+                        file: rel.clone(),
+                        line: line_of_node(i.syntax(), content),
+                        evidence: None,
+                    });
+                }
+            });
             // Trait with unsafe_token → `unsafe trait`
-            crate::analysis::ra_walker::walk_typed::<Trait, _>(
-                source.syntax(),
-                |t| {
-                    if t.unsafe_token().is_some() {
-                        let name = t
-                            .name()
-                            .map(|n| n.text().to_string())
-                            .unwrap_or_else(|| "<anon>".to_string());
-                        findings.push(Finding {
-                            category: FindingCategory::Unsafe,
-                            severity: FindingSeverity::Medium,
-                            code: "UNSAFE_TRAIT".to_string(),
-                            message: format!("`unsafe trait {}`", name),
-                            file: rel.clone(),
-                            line: line_of_node(t.syntax(), content),
-                            evidence: None,
-                        });
-                    }
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<Trait, _>(source.syntax(), |t| {
+                if t.unsafe_token().is_some() {
+                    let name = t
+                        .name()
+                        .map(|n| n.text().to_string())
+                        .unwrap_or_else(|| "<anon>".to_string());
+                    findings.push(Finding {
+                        category: FindingCategory::Unsafe,
+                        severity: FindingSeverity::Medium,
+                        code: "UNSAFE_TRAIT".to_string(),
+                        message: format!("`unsafe trait {}`", name),
+                        file: rel.clone(),
+                        line: line_of_node(t.syntax(), content),
+                        evidence: None,
+                    });
+                }
+            });
         }
         Ok(findings)
     }
@@ -164,28 +150,25 @@ impl BugPatternAnalyzer {
         let mut findings = Vec::new();
         for (path, source, content) in sources {
             let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
-            crate::analysis::ra_walker::walk_typed::<MethodCallExpr, _>(
-                source.syntax(),
-                |call| {
-                    let method_name = call
-                        .name_ref()
-                        .and_then(|m| m.ident_token())
-                        .map(|t| t.text().to_string());
-                    if let Some(name) = method_name {
-                        if name == "unwrap" || name == "expect" {
-                            findings.push(Finding {
-                                category: FindingCategory::UnwrapRisk,
-                                severity: FindingSeverity::Low,
-                                code: "UNWRAP_OR_EXPECT".to_string(),
-                                message: format!("`.{}()` can panic at runtime", name),
-                                file: rel.clone(),
-                                line: line_of_node(call.syntax(), content),
-                                evidence: None,
-                            });
-                        }
+            crate::analysis::ra_walker::walk_typed::<MethodCallExpr, _>(source.syntax(), |call| {
+                let method_name = call
+                    .name_ref()
+                    .and_then(|m| m.ident_token())
+                    .map(|t| t.text().to_string());
+                if let Some(name) = method_name {
+                    if name == "unwrap" || name == "expect" {
+                        findings.push(Finding {
+                            category: FindingCategory::UnwrapRisk,
+                            severity: FindingSeverity::Low,
+                            code: "UNWRAP_OR_EXPECT".to_string(),
+                            message: format!("`.{}()` can panic at runtime", name),
+                            file: rel.clone(),
+                            line: line_of_node(call.syntax(), content),
+                            evidence: None,
+                        });
                     }
-                },
-            );
+                }
+            });
         }
         Ok(findings)
     }
@@ -217,44 +200,35 @@ impl BugPatternAnalyzer {
         for (path, source, content) in sources {
             let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
             // Macros like `mem::transmute!(...)` (not common but possible)
-            crate::analysis::ra_walker::walk_typed::<MacroCall, _>(
-                source.syntax(),
-                |m| {
-                    let path_str = m.path().as_ref().map(path_to_string).unwrap_or_default();
-                    if UNCHECKED_PATHS.contains(&path_str.as_str()) {
-                        findings.push(Finding {
-                            category: FindingCategory::Unsafe,
-                            severity: FindingSeverity::High,
-                            code: "UNCHECKED_OP".to_string(),
-                            message: format!(
-                                "`{}` is unsafe — review carefully",
-                                path_str
-                            ),
-                            file: rel.clone(),
-                            line: line_of_node(m.syntax(), content),
-                            evidence: Some(format!("`{}!`", path_str)),
-                        });
-                    }
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<MacroCall, _>(source.syntax(), |m| {
+                let path_str = m.path().as_ref().map(path_to_string).unwrap_or_default();
+                if UNCHECKED_PATHS.contains(&path_str.as_str()) {
+                    findings.push(Finding {
+                        category: FindingCategory::Unsafe,
+                        severity: FindingSeverity::High,
+                        code: "UNCHECKED_OP".to_string(),
+                        message: format!("`{}` is unsafe — review carefully", path_str),
+                        file: rel.clone(),
+                        line: line_of_node(m.syntax(), content),
+                        evidence: Some(format!("`{}!`", path_str)),
+                    });
+                }
+            });
             // Function calls like `mem::transmute(...)` (most common)
-            crate::analysis::ra_walker::walk_typed::<CallExpr, _>(
-                source.syntax(),
-                |c| {
-                    let path_str = expr_call_path(c);
-                    if UNCHECKED_PATHS.contains(&path_str.as_str()) {
-                        findings.push(Finding {
-                            category: FindingCategory::Unsafe,
-                            severity: FindingSeverity::High,
-                            code: "UNCHECKED_FN".to_string(),
-                            message: format!("`{}()` is an unsafe fn", path_str),
-                            file: rel.clone(),
-                            line: line_of_node(c.syntax(), content),
-                            evidence: None,
-                        });
-                    }
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<CallExpr, _>(source.syntax(), |c| {
+                let path_str = expr_call_path(c);
+                if UNCHECKED_PATHS.contains(&path_str.as_str()) {
+                    findings.push(Finding {
+                        category: FindingCategory::Unsafe,
+                        severity: FindingSeverity::High,
+                        code: "UNCHECKED_FN".to_string(),
+                        message: format!("`{}()` is an unsafe fn", path_str),
+                        file: rel.clone(),
+                        line: line_of_node(c.syntax(), content),
+                        evidence: None,
+                    });
+                }
+            });
         }
         Ok(findings)
     }
@@ -275,39 +249,36 @@ impl BugPatternAnalyzer {
         let mut findings = Vec::new();
         for (path, source, content) in sources {
             let rel = display_rel_path(path.strip_prefix(&entry.path).unwrap_or(path));
-            crate::analysis::ra_walker::walk_typed::<MacroCall, _>(
-                source.syntax(),
-                |m| {
-                    let macro_name = match m.path() {
-                        Some(p) => path_to_string(&p),
-                        None => return,
-                    };
-                    if !PANIC_MACROS.contains(&macro_name.as_str()) {
-                        return;
-                    }
-                    let severity = match macro_name.as_str() {
-                        "panic" => FindingSeverity::Medium,
-                        "unreachable" | "todo" | "unimplemented" => FindingSeverity::High,
-                        _ => FindingSeverity::Low,
-                    };
-                    let preview = m
-                        .syntax()
-                        .text()
-                        .to_string()
-                        .chars()
-                        .take(40)
-                        .collect::<String>();
-                    findings.push(Finding {
-                        category: FindingCategory::PanicSite,
-                        severity,
-                        code: format!("{}_SITE", macro_name.to_uppercase()),
-                        message: format!("`{}!` is a panic site", macro_name),
-                        file: rel.clone(),
-                        line: line_of_node(m.syntax(), content),
-                        evidence: Some(format!("`{}!({})`", macro_name, preview)),
-                    });
-                },
-            );
+            crate::analysis::ra_walker::walk_typed::<MacroCall, _>(source.syntax(), |m| {
+                let macro_name = match m.path() {
+                    Some(p) => path_to_string(&p),
+                    None => return,
+                };
+                if !PANIC_MACROS.contains(&macro_name.as_str()) {
+                    return;
+                }
+                let severity = match macro_name.as_str() {
+                    "panic" => FindingSeverity::Medium,
+                    "unreachable" | "todo" | "unimplemented" => FindingSeverity::High,
+                    _ => FindingSeverity::Low,
+                };
+                let preview = m
+                    .syntax()
+                    .text()
+                    .to_string()
+                    .chars()
+                    .take(40)
+                    .collect::<String>();
+                findings.push(Finding {
+                    category: FindingCategory::PanicSite,
+                    severity,
+                    code: format!("{}_SITE", macro_name.to_uppercase()),
+                    message: format!("`{}!` is a panic site", macro_name),
+                    file: rel.clone(),
+                    line: line_of_node(m.syntax(), content),
+                    evidence: Some(format!("`{}!({})`", macro_name, preview)),
+                });
+            });
         }
         Ok(findings)
     }
@@ -485,11 +456,7 @@ fn is_pub_loc(loc: &crate::analysis::symbol_resolver::SymbolLocation) -> bool {
 /// counts newlines.
 fn line_of_node(node: &ra_ap_syntax::SyntaxNode, content: &str) -> u32 {
     let offset: usize = node.text_range().start().into();
-    content[..offset]
-        .chars()
-        .filter(|&c| c == '\n')
-        .count() as u32
-        + 1
+    content[..offset].chars().filter(|&c| c == '\n').count() as u32 + 1
 }
 
 /// Converts an `ast::Path` (from `MacroCall::path()`) to string.
@@ -498,7 +465,11 @@ fn path_to_string(path: &ra_ap_syntax::ast::Path) -> String {
     path.segments()
         .map(|s| {
             s.name_ref()
-                .map(|n| n.ident_token().map(|t| t.text().to_string()).unwrap_or_default())
+                .map(|n| {
+                    n.ident_token()
+                        .map(|t| t.text().to_string())
+                        .unwrap_or_default()
+                })
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>()
@@ -518,7 +489,11 @@ fn expr_call_path(call: &ra_ap_syntax::ast::CallExpr) -> String {
     path.segments()
         .map(|s| {
             s.name_ref()
-                .map(|n| n.ident_token().map(|t| t.text().to_string()).unwrap_or_default())
+                .map(|n| {
+                    n.ident_token()
+                        .map(|t| t.text().to_string())
+                        .unwrap_or_default()
+                })
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>()

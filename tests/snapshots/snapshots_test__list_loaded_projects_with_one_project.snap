@@ -6,4 +6,4 @@ expression: text
 
 | Name | Alias | Kind | Path |
 |------|-------|------|------|
-| `sample_crate` | `sample` | crate | `/Users/alejandro.ferreira/Carrefour/local/ams/rust-mcp-server/tests/fixtures/sample_crate` |
+| `sample_crate` | `sample` | crate | `/Users/alejandro.ferreira/Carrefour/local/ams/mcps/rust-mcp-server/tests/fixtures/sample_crate` |

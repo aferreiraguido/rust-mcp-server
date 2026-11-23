@@ -6,21 +6,21 @@ expression: text
 
 ### `add` [pub]
 
-- **File**: `/local/rust-mcp-server/tests/fixtures/sample_crate/src/lib.rs`
+- **File**: `src/lib.rs`
 - **Signature**: `fn add(a: i32, b: i32) -> i32`
 ### `cached_value` [pub]
 
-- **File**: `/local/ams/rust-mcp-server/tests/fixtures/sample_crate/src/lib.rs`
+- **File**: `src/lib.rs`
 - **Signature**: `fn cached_value() -> i32`
 - **Doc**: Returns the cached value, initializing it on first call.
 Ejercita el dep `once_cell`.
 ### `is_release` [pub]
 
-- **File**: `/local/ams/rust-mcp-server/tests/fixtures/sample_crate/src/lib.rs`
+- **File**: `src/lib.rs`
 - **Signature**: `fn is_release() -> bool`
 - **Doc**: Returns `true` si el binario se compiló en release mode.
 Ejercita el dep `cfg-if`.
 ### `multiply` [pub]
 
-- **File**: `/local/ams/rust-mcp-server/tests/fixtures/sample_crate/src/lib.rs`
+- **File**: `src/lib.rs`
 - **Signature**: `fn multiply(a: i32, b: i32) -> i32`

@@ -33,10 +33,30 @@ path = "src/lib.rs"
 
 [dependencies]
 # MCP SDK oficial (4t145, mismo publisher que ra_ap_*)
-rmcp = { version = "2.2", features = ["server", "macros", "schemars", "transport-io"] }
+rmcp = { version = "2.2", features = [
+    "server",
+    "macros",
+    "schemars",
+    "transport-io",
+    "transport-streamable-http-server",
+    "transport-streamable-http-server-session",
+] }
+
+# HTTP Web framework para modo Streamable HTTP (--mode http)
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
+tokio-util = "0.7"
+tower = "0.5"
 
 # Async runtime (requerido por rmcp)
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time", "io-util", "fs"] }
+tokio = { version = "1", features = [
+    "macros",
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "io-util",
+    "fs",
+    "signal",
+] }
 
 # Serialización
 serde = { version = "1", features = ["derive"] }
@@ -103,6 +123,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util", "
 tempfile = "3"
 insta = { version = "1", features = ["yaml", "json"] }
 futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
 
 [profile.release]
 # Fat-binary friendly: LTO + strip + opt-level z

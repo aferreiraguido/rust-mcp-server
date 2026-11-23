@@ -17,23 +17,26 @@ It is the Rust counterpart of `cobol-mcp-server`, `java-mcp-server` and
 `python-mcp-server`: same philosophy ("ground truth", no hallucination), different
 domain and different parser (syn/toml/ra_ap_* instead of ProLeap/Spoon/LibCST).
 
-> ✅ **Status**: **iteration 8+ completed** (37 tools; bug-hunt with 6 sweeps
-> styled after `cobol-bug-hunt`: `find_unsafe_blocks`, `find_unwrap_patterns`,
-> `find_unchecked_patterns`, `find_panic_sites`, `find_dead_code`, `find_unused_dependencies`).
-> **78 tests** (33 unit + 45 golden snapshots). Semantic ASG (`ra_ap_*` 0.0.343) integrated.
+> ✅ **Status**: **iteration 9 completed** (Dual transport: `stdio` + Streamable `http` at `/mcp`
+> with `--mode/--port/--host/--max-threads/--api-keys` and Bearer token auth; 37 tools;
+> bug-hunt with 6 sweeps). **84 tests** (37 unit + 2 http integration + 45 golden snapshots).
+> Semantic ASG (`ra_ap_*` 0.0.343) integrated.
 
 ---
 
 ## 2. Stack & commands
 
-- **Rust 1.85+** (tested under 1.96.0; `rustup` optional — via Homebrew)
+- **Rust 1.85+** (tested under 1.96.0 / 1.97.0; `rustup` optional — via Homebrew)
 - Build: `cargo build --release` → `target/release/rust-mcp-server` (~13 MB macOS, 16 MB musl)
 - Compile: `cargo check`
-- Test: `cargo test` (78 tests: 33 unit + 45 golden snapshots)
+- Test: `cargo test` (84 tests: 37 unit + 2 http integration + 45 golden snapshots)
+- Smoke stdio: `python3 scripts/smoke_test.py`
+- Smoke HTTP: `./scripts/smoke-http.sh --port 18090`
 - Version: managed by `version.txt` (read by `build.rs` → `OUT_DIR/version.rs`)
 - Key dependencies:
-  - `rmcp = "2.2"` (oficial, 4t145) — features `["server", "macros", "schemars", "transport-io"]`
-  - `tokio = "1"` (async runtime)
+  - `rmcp = "2.2"` (oficial, 4t145) — features `["server", "macros", "schemars", "transport-io", "transport-streamable-http-server", "transport-streamable-http-server-session"]`
+  - `axum = "0.8"` (HTTP router for Streamable HTTP mode)
+  - `tokio = "1"` (async runtime, features `["macros", "rt-multi-thread", "sync", "time", "io-util", "fs", "signal"]`)
   - `serde` + `serde_json` (serialización)
   - `schemars` (JSON Schema for inputSchema)
   - `thiserror` + `anyhow` (errors)
@@ -42,7 +45,10 @@ domain and different parser (syn/toml/ra_ap_* instead of ProLeap/Spoon/LibCST).
   - `async-trait` (async dispatch in `McpTool`)
   - `insta` (golden snapshots, dev-dep)
   - `tempfile` (test fixtures, dev-dep)
-- Transport: `rmcp::transport::io::stdio()` (stdio, no reflection)
+  - `reqwest` (integration tests, dev-dep)
+- Transport:
+  - Default: `stdio` (`rmcp::transport::io::stdio()`)
+  - HTTP mode: Streamable HTTP (`rmcp::transport::streamable_http_server::StreamableHttpService` via Axum on `/mcp`)
 - Semantic análisis ASG: `ra_ap_*` 0.0.343 since early Iter 3 (see §13).
 - **IMPORTANT**: `ra_ap_*` crates are version-pinned at `=0.0.343`. DO NOT update without verifying compatibility with all tools.
 
@@ -431,7 +437,8 @@ path traversal blocked, tool without arguments).
 | **5** | Cross-compile to musl with `cargo-zigbuild` + `zig`. Static ELF 64-bit binaries (x86_64: 16 MB, aarch64: 14 MB). | ✅ Done |
 | **6+** | `find_unused_dependencies`; `SymbolLocation.implicit_references` (skip `#[test]`); fix path traversal; real Git clone; rustup shims on macOS. 37 tools. | ✅ Done |
 | **7+** | `cargo zigbuild --tests` validated; `text_utils::count_whole_word_matches` consolidated; Git clone flow validated. 78 tests. | ✅ Done |
-| **8+ (current)** | CI workflow (3 jobs); multi-stage Dockerfile (42 MB); enriched sample_crate (3 real deps); refactor sweeps to `ra_ap_syntax` + `ra_walker`. **37 tools, 78 tests green (33 unit + 45 snapshots), 0 warnings.** | ✅ Done |
+| **8+** | CI workflow (3 jobs); multi-stage Dockerfile (42 MB); enriched sample_crate (3 real deps); refactor sweeps to `ra_ap_syntax` + `ra_walker`. 37 tools, 78 tests green (33 unit + 45 snapshots), 0 warnings. | ✅ Done |
+| **9 (current)** | Dual transport parity (MCP_CONTRACT): `stdio` (default) + Streamable HTTP (`/mcp`, `--mode http --port/--host/--max-threads/--api-keys`). Bearer token auth (`ApiKeyStore`), axum 0.8 integration, `HttpTransportLauncher`, `tests/http_transport_test.rs` (2 tests), `scripts/smoke-http.sh` (E2E check). **84 tests green (37 unit + 2 http + 45 snapshots), 0 warnings.** | ✅ Done |
 
 **Iteration rule**: each iter ends with `cargo test` green + smoke
 test end-to-end OK + snapshot diff if applicable. Do not skip to the next

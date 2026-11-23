@@ -6,7 +6,7 @@ expression: text
 
 | Field | Value |
 |---|---|
-| **File** | `/Users/alejandro.ferreira/Carrefour/local/ams/rust-mcp-server/tests/fixtures/sample_crate/src/lib.rs` |
+| **File** | `src/lib.rs` |
 | **Visibility** | `pub` |
 | **Signature** | `fn add(a: i32, b: i32) -> i32` |
 

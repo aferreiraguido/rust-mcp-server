@@ -230,8 +230,8 @@ impl RustAnalyzerUtils {
         }
         // If not, load and cache it.
         let path = entry.path.join("Cargo.toml");
-        let manifest = CargoManifest::load(&path)
-            .map_err(|e| AnalysisError::Manifest(format!("{:?}", e)))?;
+        let manifest =
+            CargoManifest::load(&path).map_err(|e| AnalysisError::Manifest(format!("{:?}", e)))?;
         // `set` returns Err if already initialized (race). In that case
         // use the one that won the race.
         let manifest = entry.cached_manifest.get_or_init(|| manifest);
